@@ -1,0 +1,21 @@
+{
+  "name": "leadle",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "rm -rf out && node esbuild.mjs",
+    "watch": "rm -rf out && node esbuild.mjs --watch"
+  },
+  "keywords": [],
+  "author": "Winston Co",
+  "license": "MIT",
+  "description": "Dles leaderboard extension",
+  "dependencies": {},
+  "devDependencies": {
+    "@tsconfig/node20": "^20.1.4",
+    "@types/chrome": "^0.0.283",
+    "@types/node": "^22.9.3",
+    "chrome-types": "^0.1.321",
+    "esbuild": "0.24.0",
+    "typescript": "^5.7.2"
+  }
+}

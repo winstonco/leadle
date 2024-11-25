@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Leadle",
+  "description": "Dles leaderboard extension",
+  "version": "0.1.0",
+  "action": {
+    "default_popup": "assets/hello.html",
+    "default_icon": "assets/hello_extensions.png"
+  },
+  "permissions": [
+    "storage",
+    "cookies",
+    "webRequest",
+    "webRequestAuthProvider"
+    // "activeTab"
+  ],
+  "host_permissions": [
+    "*://www.nytimes.com/*"
+    // "*://www.nytimes.com/games/*",
+    // "*://www.nytimes.com/svc/games/*"
+  ],
+  "content_scripts": [
+    {
+      "js": ["scripts/content.js"],
+      "matches": ["*://*/*"]
+    },
+    {
+      "js": ["scripts/nyt.js"],
+      "matches": ["https://www.nytimes.com/games/*"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/images/icon-16.png"],
+      "matches": ["https://*/*"]
+    }
+  ],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "assets/images/icon-16.png",
+    "32": "assets/images/icon-32.png",
+    "48": "assets/images/icon-48.png",
+    "128": "assets/images/icon-128.png"
+  }
+}
