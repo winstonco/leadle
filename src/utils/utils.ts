@@ -1,3 +1,8 @@
+export async function isDev(): Promise<boolean> {
+  const self = await chrome.management.getSelf();
+  return self.installType === 'development';
+}
+
 /**
  * https://developer.chrome.com/docs/extensions/reference/api/tabs#get_the_current_tab
  */
@@ -34,4 +39,16 @@ export function randomNumber(): number {
   }
   const values: Uint32Array = new Uint32Array(1);
   return globalThis.crypto.getRandomValues(values)[0];
+}
+
+// AI
+export function msToMMSS(ms: number) {
+  const seconds = Math.floor(ms / 1000);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+
+  const pad = (num: number) => String(num).padStart(2, '0');
+
+  return `${pad(minutes)}:${pad(remainingSeconds)}`;
 }

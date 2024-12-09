@@ -1,6 +1,13 @@
 {
-    "compilerOptions": {
-        "lib": ["DOM"]
-    },
-    "extends": "@tsconfig/node20/tsconfig.json"
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/*": ["./src/@/*"]
+    }
+  },
+  "extends": "@tsconfig/node20/tsconfig.json"
 }

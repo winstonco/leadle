@@ -1,9 +1,22 @@
 import { Hasher } from './Hasher';
 
-export type MessageTargets = {
-  nyt: 'uid' | 'gameState';
-  pokedoku: 'test';
+type GenericMessageTargets = {
+  debug: 'log';
 };
+
+type ServiceWorkerMessageTargets =
+  | GenericMessageTargets & {
+      nyt: 'uid';
+    };
+
+type ContentScriptMessageTargets =
+  | GenericMessageTargets & {
+      nyt: 'gameState';
+    };
+
+type AllMessageTargetsUnion =
+  | ServiceWorkerMessageTargets
+  | ContentScriptMessageTargets;
 
 type ChromeMessageListener = (
   message: any,
@@ -12,37 +25,45 @@ type ChromeMessageListener = (
 ) => void;
 
 export class TypedMessenger {
-  public async sendMessage<T extends keyof MessageTargets>(
-    target: T,
-    message: MessageTargets[T]
-  ) {
-    return await chrome.runtime.sendMessage({ [target]: message });
-  }
-
-  /** Used to send messages to content scripts. */
-  public async sendTabMessage<T extends keyof MessageTargets>(
-    tabId: number,
-    target: T,
-    message: MessageTargets[T]
-  ) {
-    return await chrome.tabs.sendMessage(tabId, { [target]: message });
-  }
-
+  // Hasher
   private readonly hasher: Hasher = new Hasher();
+  // KV of hashed custom listener functions to actual chrome.runtime.onMessage listener so they can be removed completely
   private readonly listeners: {
     [listenerHash: string]: ChromeMessageListener;
   } = {};
 
-  public addListener<T extends keyof MessageTargets>(
+  public async sendMessage<T extends keyof ServiceWorkerMessageTargets>(
     target: T,
-    request: MessageTargets[T],
-    response?: (sendResponse: (response?: any) => void) => void
+    message: ServiceWorkerMessageTargets[T],
+    ...args: any[]
+  ) {
+    return await chrome.runtime.sendMessage([target, message, args]);
+  }
+
+  /** Used to send messages to content scripts. */
+  public async sendTabMessage<T extends keyof ContentScriptMessageTargets>(
+    tabId: number,
+    target: T,
+    message: ContentScriptMessageTargets[T],
+    ...args: any[]
+  ) {
+    return await chrome.tabs.sendMessage(tabId, [target, message, args]);
+  }
+
+  public addListener<T extends keyof AllMessageTargetsUnion>(
+    target: T,
+    request: AllMessageTargetsUnion[T],
+    response?: (
+      sendResponse: (response?: any) => void,
+      sender: chrome.runtime.MessageSender,
+      ...args: any[]
+    ) => void
   ) {
     const listener: ChromeMessageListener = (message, sender, sendResponse) => {
-      const [t, req] = Object.entries(message)[0];
+      const [t, req, args]: [T, AllMessageTargetsUnion[T], any[]] = message;
       if (t !== target) return false;
       if (req !== request) return false;
-      if (response) response(sendResponse);
+      if (response) response(sendResponse, sender, ...args);
       return true;
     };
     chrome.runtime.onMessage.addListener(listener);
@@ -50,9 +71,9 @@ export class TypedMessenger {
     this.listeners[hash] = listener;
   }
 
-  public removeListener<T extends keyof MessageTargets>(
+  public removeListener<T extends keyof AllMessageTargetsUnion>(
     target: T,
-    request: MessageTargets[T],
+    request: AllMessageTargetsUnion[T],
     response?: (sendResponse: (response?: any) => void) => void
   ) {
     const hash = this.getFnHashHelper(target, request, response);
@@ -62,9 +83,9 @@ export class TypedMessenger {
     }
   }
 
-  public once<T extends keyof MessageTargets>(
+  public once<T extends keyof AllMessageTargetsUnion>(
     target: T,
-    request: MessageTargets[T],
+    request: AllMessageTargetsUnion[T],
     response?: (sendResponse: (response?: any) => void) => any
   ) {
     const wrapper = (...args: any) => {
@@ -74,14 +95,16 @@ export class TypedMessenger {
     this.addListener(target, request, wrapper);
   }
 
-  private getFnHashHelper<T extends keyof MessageTargets>(
+  private getFnHashHelper<T extends keyof AllMessageTargetsUnion>(
     target: T,
-    request: MessageTargets[T],
-    response?: (sendResponse: (response?: any) => void) => void
+    request: AllMessageTargetsUnion[T],
+    response?: (...args: any[]) => void
   ) {
     const hash =
       this.hasher.hashString(target) +
-      this.hasher.hashString(request) +
+      this.hasher.hashString(
+        Array.isArray(request) ? request.toString() : request
+      ) +
       this.hasher.hashFunc(response ?? (() => {}));
     return hash;
   }

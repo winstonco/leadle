@@ -1,3 +1,4 @@
+import { DATA_ACCESS } from '../data/data';
 import { typedMessenger } from '../utils/TypedMessenger';
 import { getCurrentTab } from '../utils/utils';
 import { webRequestObservable } from './intercept';
@@ -5,16 +6,16 @@ import { webRequestObservable } from './intercept';
 console.log('nyt.js');
 
 // Listen for when NYT sends data back to their server (this happens when the player updates their game state)
-webRequestObservable.subscribe(async (details) => {
+webRequestObservable.subscribe(async (_) => {
   // Get new game state
   const t = await getCurrentTab();
-  if (!t || !t.id) return;
+  if (!t || !t.id || !t.url || !t.url.includes('://www.nytimes.com')) return;
   const gameState = await typedMessenger.sendTabMessage(
     t.id,
     'nyt',
     'gameState'
   );
-  console.log(`gameState: ${JSON.stringify(gameState)}`);
+  await DATA_ACCESS.setData('userData', gameState);
 });
 
 export async function getUid(): Promise<string> {
@@ -37,6 +38,7 @@ export async function getUid(): Promise<string> {
   // return '228153123';
 }
 
-typedMessenger.addListener('nyt', 'uid', (sendResponse) =>
-  getUid().then(sendResponse)
-);
+typedMessenger.addListener('nyt', 'uid', (sendResponse) => {
+  getUid().then(sendResponse);
+  return true;
+});

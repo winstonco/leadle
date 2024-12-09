@@ -4,15 +4,15 @@
   "description": "Dles leaderboard extension",
   "version": "0.1.0",
   "action": {
-    "default_popup": "assets/hello.html",
+    "default_popup": "popup/index.html",
     "default_icon": "assets/hello_extensions.png"
   },
   "permissions": [
     "storage",
     "cookies",
     "webRequest",
-    "webRequestAuthProvider"
-    // "activeTab"
+    "webRequestAuthProvider",
+    "activeTab"
   ],
   "host_permissions": [
     "*://www.nytimes.com/*"

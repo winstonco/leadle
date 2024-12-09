@@ -1,8 +1,13 @@
 import { argv } from 'process';
 import * as esbuild from 'esbuild';
+import { solidPlugin } from 'esbuild-plugin-solid';
+import { tailwindPlugin } from 'esbuild-plugin-tailwindcss';
 
+/** @type {esbuild.SameShape<esbuild.BuildOptions, esbuild.BuildOptions>} */
 const options = {
   entryPoints: [
+    './src/popup/index.html',
+    './src/popup/index.tsx',
     './src/assets/**',
     './src/scripts/**/*.ts',
     './src/service-worker.ts',
@@ -15,7 +20,9 @@ const options = {
     '.json': 'copy',
     '.html': 'copy',
     '.png': 'copy',
+    '.css': 'copy',
   },
+  plugins: [solidPlugin(), tailwindPlugin({})],
 };
 
 if (argv[2] === '--watch') {

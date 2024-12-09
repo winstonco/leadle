@@ -1,6 +1,7 @@
+import { DATA_ACCESS } from '../data/data';
 import { typedMessenger } from '../utils/TypedMessenger';
 
-{
+(async () => {
   console.log('nyt.js');
 
   async function getUid(): Promise<string> {
@@ -9,16 +10,24 @@ import { typedMessenger } from '../utils/TypedMessenger';
     return uid2;
   }
 
-  typedMessenger.addListener('nyt', 'gameState', async (sendResponse) => {
+  async function getWordleState(): Promise<any> {
     const uid = await getUid();
-    const gameStateStorage = localStorage.getItem(
+    const gameStateStorage = window.localStorage.getItem(
       `games-state-wordleV2/${uid}`
     );
     if (!gameStateStorage) {
-      sendResponse(null);
-      return;
+      return null;
     }
     const gameState = JSON.parse(gameStateStorage);
-    sendResponse(gameState);
+    return gameState;
+  }
+
+  typedMessenger.addListener('nyt', 'gameState', (sendResponse) => {
+    getWordleState().then(sendResponse);
+    return true;
   });
-}
+
+  // INIT
+  const wordleState = await getWordleState();
+  await DATA_ACCESS.setData('userData', wordleState);
+})();
