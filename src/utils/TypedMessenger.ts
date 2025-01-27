@@ -1,30 +1,34 @@
-import { Hasher } from './Hasher';
+import { Hasher } from "./Hasher";
 
-type GenericMessageTargets = {
-  debug: 'log';
+/** source: https://stackoverflow.com/questions/63079777/how-do-i-merge-two-interface-types-with-the-overlapping-properties-types-being */
+type Combine<A, B> =
+  & Omit<A, keyof B>
+  & Omit<B, keyof A>
+  & { [K in keyof A & keyof B]: A[K] | B[K] };
+
+type SharedMessages = {
+  debug: "log";
 };
 
-type ServiceWorkerMessageTargets =
-  | GenericMessageTargets & {
-      nyt: 'uid';
-    };
+type ToServiceWorkerMessages = SharedMessages & {
+  auth: "signIn" | "refreshSessions" | "getAuthSession" | "getProviderSession";
+  nyt: "uid";
+};
 
-type ContentScriptMessageTargets =
-  | GenericMessageTargets & {
-      nyt: 'gameState';
-    };
+type ToContentScriptMessages = SharedMessages & {
+  nyt: "gameState";
+};
 
-type AllMessageTargetsUnion =
-  | ServiceWorkerMessageTargets
-  | ContentScriptMessageTargets;
+type AllMessages = Combine<ToServiceWorkerMessages, ToContentScriptMessages>;
 
 type ChromeMessageListener = (
   message: any,
   sender: chrome.runtime.MessageSender,
-  sendResponse: (response?: any) => void
+  sendResponse: (response?: any) => void,
 ) => void;
 
 export class TypedMessenger {
+  public id: number = Math.floor(Math.random() * 10000);
   // Hasher
   private readonly hasher: Hasher = new Hasher();
   // KV of hashed custom listener functions to actual chrome.runtime.onMessage listener so they can be removed completely
@@ -32,49 +36,55 @@ export class TypedMessenger {
     [listenerHash: string]: ChromeMessageListener;
   } = {};
 
-  public async sendMessage<T extends keyof ServiceWorkerMessageTargets>(
+  /** Sends message with format: [target, message, args] */
+  public async sendMessage<T extends keyof ToServiceWorkerMessages>(
     target: T,
-    message: ServiceWorkerMessageTargets[T],
+    message: ToServiceWorkerMessages[T],
     ...args: any[]
   ) {
     return await chrome.runtime.sendMessage([target, message, args]);
   }
 
-  /** Used to send messages to content scripts. */
-  public async sendTabMessage<T extends keyof ContentScriptMessageTargets>(
+  /** Sends message with format: [target, message, args]. Used to send messages to content scripts. */
+  public async sendTabMessage<T extends keyof ToContentScriptMessages>(
     tabId: number,
     target: T,
-    message: ContentScriptMessageTargets[T],
+    message: ToContentScriptMessages[T],
     ...args: any[]
   ) {
     return await chrome.tabs.sendMessage(tabId, [target, message, args]);
   }
 
-  public addListener<T extends keyof AllMessageTargetsUnion>(
+  /** Adds listener on message: [target, request, args] */
+  public addListener<T extends keyof AllMessages>(
     target: T,
-    request: AllMessageTargetsUnion[T],
+    request: AllMessages[T],
     response?: (
       sendResponse: (response?: any) => void,
       sender: chrome.runtime.MessageSender,
       ...args: any[]
-    ) => void
+    ) => Promise<void>,
   ) {
     const listener: ChromeMessageListener = (message, sender, sendResponse) => {
-      const [t, req, args]: [T, AllMessageTargetsUnion[T], any[]] = message;
+      const [t, req, args]: [T, AllMessages[T], any[]?] = message;
       if (t !== target) return false;
       if (req !== request) return false;
-      if (response) response(sendResponse, sender, ...args);
-      return true;
+      if (response) {
+        if (args) response(sendResponse, sender, ...args);
+        else response(sendResponse, sender);
+        return true;
+      }
+      return false;
     };
     chrome.runtime.onMessage.addListener(listener);
     const hash = this.getFnHashHelper(target, request, response);
     this.listeners[hash] = listener;
   }
 
-  public removeListener<T extends keyof AllMessageTargetsUnion>(
+  public removeListener<T extends keyof AllMessages>(
     target: T,
-    request: AllMessageTargetsUnion[T],
-    response?: (sendResponse: (response?: any) => void) => void
+    request: AllMessages[T],
+    response?: (sendResponse: (response?: any) => void) => void,
   ) {
     const hash = this.getFnHashHelper(target, request, response);
     if (this.listeners[hash] !== undefined) {
@@ -83,27 +93,26 @@ export class TypedMessenger {
     }
   }
 
-  public once<T extends keyof AllMessageTargetsUnion>(
+  public once<T extends keyof AllMessages>(
     target: T,
-    request: AllMessageTargetsUnion[T],
-    response?: (sendResponse: (response?: any) => void) => any
+    request: AllMessages[T],
+    response?: (sendResponse: (response?: any) => void) => any,
   ) {
-    const wrapper = (...args: any) => {
+    const wrapper = async (...args: any) => {
       response?.(args);
       this.removeListener(target, request, wrapper);
     };
     this.addListener(target, request, wrapper);
   }
 
-  private getFnHashHelper<T extends keyof AllMessageTargetsUnion>(
+  private getFnHashHelper<T extends keyof AllMessages>(
     target: T,
-    request: AllMessageTargetsUnion[T],
-    response?: (...args: any[]) => void
+    request: AllMessages[T],
+    response?: (...args: any[]) => void,
   ) {
-    const hash =
-      this.hasher.hashString(target) +
+    const hash = this.hasher.hashString(target) +
       this.hasher.hashString(
-        Array.isArray(request) ? request.toString() : request
+        Array.isArray(request) ? request.toString() : request,
       ) +
       this.hasher.hashFunc(response ?? (() => {}));
     return hash;

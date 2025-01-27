@@ -7,7 +7,7 @@ import { tailwindPlugin } from 'esbuild-plugin-tailwindcss';
 const options = {
   entryPoints: [
     './src/popup/index.html',
-    './src/popup/index.tsx',
+    { out: '/popup/index', in: './src/popup/App.tsx' },
     './src/assets/**',
     './src/scripts/**/*.ts',
     './src/service-worker.ts',
@@ -21,6 +21,7 @@ const options = {
     '.html': 'copy',
     '.png': 'copy',
     '.css': 'copy',
+    '.svg': 'copy',
   },
   plugins: [solidPlugin(), tailwindPlugin({})],
 };

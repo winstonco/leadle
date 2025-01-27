@@ -12,7 +12,8 @@
     "cookies",
     "webRequest",
     "webRequestAuthProvider",
-    "activeTab"
+    "activeTab",
+    "identity"
   ],
   "host_permissions": [
     "*://www.nytimes.com/*"
