@@ -15,7 +15,7 @@
     "@types/chrome": "^0.0.283",
     "@types/node": "^22.9.3",
     "chrome-types": "^0.1.321",
-    "esbuild": "0.24.0",
+    "esbuild": "^0.25.4",
     "esbuild-plugin-solid": "^0.6.0",
     "esbuild-plugin-tailwindcss": "^1.2.1",
     "supabase": "^2.6.8",

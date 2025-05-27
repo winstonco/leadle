@@ -16,15 +16,10 @@
     "identity"
   ],
   "host_permissions": [
-    "*://www.nytimes.com/*"
-    // "*://www.nytimes.com/games/*",
-    // "*://www.nytimes.com/svc/games/*"
+    "*://www.nytimes.com/games/*",
+    "*://www.nytimes.com/svc/games/*"
   ],
   "content_scripts": [
-    {
-      "js": ["scripts/content.js"],
-      "matches": ["*://*/*"]
-    },
     {
       "js": ["scripts/nyt.js"],
       "matches": ["https://www.nytimes.com/games/*"]

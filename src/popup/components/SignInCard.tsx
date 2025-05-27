@@ -15,7 +15,6 @@ import DiscordSignIn from './DiscordSignIn';
 import { User } from '@supabase/supabase-js';
 import { useUser } from '../userContext';
 import { useNavigate } from '@solidjs/router';
-import { DATA_ACCESS } from '../../data/data';
 
 export type OnSignInCallback = (result: {
   data: User | null;
@@ -28,14 +27,13 @@ function SignInCard() {
 
   const onSignIn: OnSignInCallback = async ({ data, error }) => {
     if (error !== null) {
-      console.error(error);
+      console.error(error.message, error);
       return;
     }
     console.log(data);
     refetch();
-    const goToSignedInPage: boolean =
-      (await DATA_ACCESS.getLocal('showSignedIn')) ?? true;
-    if (goToSignedInPage) {
+    const { showSignedIn } = await chrome.storage.local.get('showSignedIn');
+    if (showSignedIn ?? true) {
       navigate('/signed-in');
     }
   };

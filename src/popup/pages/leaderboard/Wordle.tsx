@@ -1,13 +1,12 @@
 import { createResource, createSignal, For, onMount, Show } from 'solid-js';
-import { DATA_ACCESS } from '../../../data/data';
 import { Star, Info } from 'lucide-solid';
 import { msToMMSS } from '../../../utils/utils';
 import { useUser } from '../../userContext';
 import { Separator } from '@/components/ui/separator';
 
 async function fetchUserData() {
-  const { userData } = await DATA_ACCESS.getLocal('userData');
-  return userData?.states[0];
+  const { wordleState } = await chrome.storage.local.get('wordleState');
+  return wordleState?.states[0];
 }
 
 async function fetchGameLeaderboardData() {

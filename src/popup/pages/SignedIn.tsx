@@ -7,7 +7,6 @@ import { useUser } from '../userContext';
 import { Card, CardHeader } from '@/components/ui/card';
 import { createSignal } from 'solid-js';
 import { Button } from '@/components/ui/button';
-import { DATA_ACCESS } from '../../data/data';
 import { useNavigate } from '@solidjs/router';
 
 function SignedIn() {
@@ -16,7 +15,7 @@ function SignedIn() {
   const navigate = useNavigate();
 
   const onClickDone = async () => {
-    await DATA_ACCESS.setLocal('showSignedIn', !checked());
+    await chrome.storage.local.set({ showSignedIn: !checked() });
     navigate('/_/redirect');
   };
 

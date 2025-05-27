@@ -1,4 +1,4 @@
-import { Hasher } from "./Hasher";
+import { Hasher } from "./utils";
 
 /** source: https://stackoverflow.com/questions/63079777/how-do-i-merge-two-interface-types-with-the-overlapping-properties-types-being */
 type Combine<A, B> =
@@ -16,7 +16,7 @@ type ToServiceWorkerMessages = SharedMessages & {
 };
 
 type ToContentScriptMessages = SharedMessages & {
-  nyt: "gameState";
+  nyt: "getWordleState";
 };
 
 type AllMessages = Combine<ToServiceWorkerMessages, ToContentScriptMessages>;
@@ -28,7 +28,6 @@ type ChromeMessageListener = (
 ) => void;
 
 export class TypedMessenger {
-  public id: number = Math.floor(Math.random() * 10000);
   // Hasher
   private readonly hasher: Hasher = new Hasher();
   // KV of hashed custom listener functions to actual chrome.runtime.onMessage listener so they can be removed completely

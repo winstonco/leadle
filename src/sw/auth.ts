@@ -1,13 +1,8 @@
 import { AuthResponse, Session } from "@supabase/supabase-js";
 import { typedMessenger } from "../utils/TypedMessenger";
-import { createClient } from "@supabase/supabase-js";
+import { supabase, supabaseUrl } from "../utils/supabase";
 
 console.log("auth.js");
-
-export const supabaseUrl = "https://whufepqlmhkcqqvbbvri.supabase.co";
-const supabaseAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndodWZlcHFsbWhrY3FxdmJidnJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM3MzQ0NTEsImV4cCI6MjA0OTMxMDQ1MX0.nP5_zjMGiiBGw5GfmmnwV5rIcGuIix_NuxIGP6FpER8";
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 type ProviderSession = {
   access_token: string;
@@ -59,7 +54,7 @@ async function removeProviderSessionFromStorage() {
 
 // #region session utilities
 /**
- * Returns a new session, regardless of expiry status.
+ * Returns a new session, regardless of expiry status. Saves it in storage.
  * @returns The new Discord auth session. If `data` or `error` !== `null`, the
  * other will be `null`.
  * @see https://supabase.com/docs/reference/javascript/auth-refreshsession
@@ -67,14 +62,10 @@ async function removeProviderSessionFromStorage() {
 async function refreshDiscordSession(
   currentSession: { refresh_token: string },
 ): Promise<{ data: ProviderSession | null; error: Error | null }> {
+  console.log("Refreshing provider session...");
   const { refresh_token } = currentSession;
 
-  const LOCAL_SUPABASE = createClient(
-    "http://127.0.0.1:54321",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0",
-  );
-
-  const { data, error } = await LOCAL_SUPABASE.functions.invoke(
+  const { data, error } = await supabase.functions.invoke(
     "discord-auth",
     {
       body: { action: "refreshToken", refreshToken: refresh_token },
@@ -90,7 +81,36 @@ async function refreshDiscordSession(
     expires_in: data.expires_in,
     token_type: data.token_type,
   };
+  console.log("Storing new provider session...");
+  await setProviderSessionInStorage(session);
+  console.log("Done");
   return { data: session, error: null };
+}
+
+/**
+ * Returns a new session, regardless of expiry status. Saves it in storage.
+ * @returns The new Supabase auth session. If `data` or `error` !== `null`, the
+ * other will be `null`.
+ * @see https://supabase.com/docs/reference/javascript/auth-refreshsession
+ */
+async function refreshAuthSession(
+  currentSession: { refresh_token: string },
+): Promise<AuthResponse> {
+  console.log("Refreshing auth session...");
+  const { refresh_token } = currentSession;
+  const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+  if (error) {
+    return { data, error };
+  } else if (data.session === null) {
+    return { data, error };
+  }
+  const session = data.session;
+  session.expires_at = session.expires_at ??
+    Math.floor(Date.now() / 1000) + session.expires_in;
+  console.log("Storing new auth session...");
+  await setAuthSessionInStorage(session);
+  console.log("Done");
+  return { data: { session, user: data.user }, error: null };
 }
 
 /**
@@ -106,13 +126,14 @@ async function getDiscordSession(): Promise<
   if (!providerSession) {
     return { data: null, error: null };
   }
-  console.log("Session found", providerSession);
+  console.log("Provider session found.", providerSession);
   // check expiration date
   if (Math.floor(Date.now() / 1000) < providerSession.expires_at) {
     // still valid
     return { data: providerSession, error: null };
   }
   // invalid, try refresh
+  console.log("Session is invalid. Refreshing...");
   return await refreshDiscordSession(providerSession);
 }
 
@@ -126,10 +147,9 @@ async function getAuthSession(): Promise<AuthResponse> {
   if (!authSession) {
     return { data: { session: null, user: null }, error: null };
   }
-  console.log("Session found", authSession);
+  console.log("Auth session found.", authSession);
   // check expiration date
-  const todayEpoch = Math.floor(Date.now() / 1000);
-  if (todayEpoch < authSession.expires_at!) {
+  if (Math.floor(Date.now() / 1000) < authSession.expires_at!) {
     // still valid
     return {
       data: { session: authSession, user: authSession.user },
@@ -137,7 +157,8 @@ async function getAuthSession(): Promise<AuthResponse> {
     };
   }
   // invalid, try refresh
-  return await supabase.auth.refreshSession(authSession);
+  console.log("Session is invalid. Refreshing...");
+  return await refreshAuthSession(authSession);
 }
 // #endregion
 
@@ -232,6 +253,7 @@ async function refreshSessions(): Promise<
 async function signInWithDiscord(
   callback: (responseUrl?: string) => Promise<void>,
 ) {
+  chrome.identity.clearAllCachedAuthTokens();
   const chromeRedirectUrl = encodeURI(chrome.identity.getRedirectURL());
 
   const url = new URL(`${supabaseUrl}/auth/v1/authorize`);
@@ -264,34 +286,32 @@ typedMessenger.addListener("auth", "signIn", async (sendResponse) => {
   await signInWithDiscord(async (redirectedTo) => {
     if (chrome.runtime.lastError) {
       // auth was not successful
+      console.log("Discord auth unsuccessful");
       sendResponse({ data: null, error: chrome.runtime.lastError });
     } else {
       // auth was successful, extract the ID token from the redirectedTo URL
+      console.log("Discord auth successful");
       const url = new URL(redirectedTo!);
       const params = new URLSearchParams(url.hash.slice(1));
-      const access_token = params.get("access_token")!;
-      const refresh_token = params.get("refresh_token")!;
-      const provider_token = params.get("provider_token")!;
-      const provider_refresh_token = params.get("provider_refresh_token")!;
-      const expires_at = Number.parseInt(params.get("expires_at")!);
-      const expires_in = Number.parseInt(params.get("expires_in")!);
-      const token_type = params.get("token_type")!;
-      const { data, error } = await supabase.auth.setSession({
-        access_token,
-        refresh_token,
-      });
+      const session = {
+        access_token: params.get("access_token")!,
+        refresh_token: params.get("refresh_token")!,
+        provider_token: params.get("provider_token")!,
+        provider_refresh_token: params.get("provider_refresh_token")!,
+        expires_at: Number.parseInt(params.get("expires_at")!),
+        expires_in: Number.parseInt(params.get("expires_in")!),
+        token_type: params.get("token_type")!,
+      };
+      console.log(session);
+      const { data, error } = await supabase.auth.setSession(session);
+      console.log(data, error);
       if (error !== null) {
+        console.log("Error setting supabase auth session");
         sendResponse({ data, error });
         return;
       }
       await setAuthSessionInStorage(data.session!);
-      await setProviderSessionInStorage({
-        access_token: provider_token,
-        refresh_token: provider_refresh_token,
-        expires_at: expires_at,
-        expires_in: expires_in,
-        token_type: token_type,
-      });
+      await setProviderSessionInStorage(session);
 
       sendResponse({ data, error });
     }

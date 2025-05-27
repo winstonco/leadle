@@ -1,6 +1,6 @@
 export async function isDev(): Promise<boolean> {
   const self = await chrome.management.getSelf();
-  return self.installType === 'development';
+  return self.installType === "development";
 }
 
 /**
@@ -32,8 +32,27 @@ export const cyrb53 = function (str: string, seed = 0): number {
   return 4294967296 * (2097151 & h2) + (h1 >>> 0);
 };
 
+/**
+ * Source: ChatGPT
+ */
+export class Hasher {
+  private funcHashes = new WeakMap<WeakKey, number>();
+  public hashFunc(func: (...args: any[]) => any): number {
+    while (!this.funcHashes.has(func)) {
+      const uniqueId = randomNumber();
+      this.funcHashes.set(func, uniqueId);
+    }
+    return this.funcHashes.get(func)!;
+  }
+
+  public hashString(input: string): number {
+    const k = cyrb53(input);
+    return k;
+  }
+}
+
 export function randomNumber(): number {
-  if (typeof globalThis === 'undefined') {
+  if (typeof globalThis === "undefined") {
     const v = cyrb53(Math.random().toString());
     return v;
   }
@@ -48,7 +67,7 @@ export function msToMMSS(ms: number) {
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
 
-  const pad = (num: number) => String(num).padStart(2, '0');
+  const pad = (num: number) => String(num).padStart(2, "0");
 
   return `${pad(minutes)}:${pad(remainingSeconds)}`;
 }
